@@ -5,9 +5,6 @@ import { Sphere } from "./sphere";
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d")!;
 const sphere = new Sphere(new Vec3(0, 0, -3), 1);
-
-const center = new Vec3(0, 0, -3);
-const radius = 1;
 const light = new Vec3(2, 2, 0);
 
 const imageData = ctx.createImageData(canvas.width, canvas.height);
@@ -25,7 +22,7 @@ for (let py = 0; py < 600; py++) {
 
     if (t !== null) {
       const P = ray.pointAt(t);
-      const normal = P.sub(sphere.center).normalize();
+      const normal = sphere.getNormal(P);
       const lightDir = light.sub(P).normalize();
       const brightness = Math.max(0, normal.dot(lightDir));
 
