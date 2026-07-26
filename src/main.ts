@@ -3,6 +3,20 @@ import { Ray } from "./ray";
 import { Sphere } from "./sphere";
 import { Plane } from "./plane";
 
+// ---------- Scene setup ----------
+
+const light = new Vec3(2, 2, 0);
+
+const objects = [
+  { shape: new Sphere(new Vec3(0, 0, -3), 1), color: new Vec3(1, 0, 0) },
+  {
+    shape: new Plane(new Vec3(0, -1, 0), new Vec3(0, 1, 0)),
+    color: new Vec3(0.5, 0.5, 0.5),
+  },
+];
+
+// ---------- Core raytracing logic ----------
+
 function traceRay(ray: Ray): Vec3 {
   let bestT = Infinity;
   let bestObject = null;
@@ -46,35 +60,36 @@ function traceRay(ray: Ray): Vec3 {
   }
 }
 
+// ---------- Render loop ----------
+
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d")!;
-const light = new Vec3(2, 2, 0);
-
-const objects = [
-  { shape: new Sphere(new Vec3(0, 0, -3), 1), color: new Vec3(1, 0, 0) },
-  {
-    shape: new Plane(new Vec3(0, -1, 0), new Vec3(0, 1, 0)),
-    color: new Vec3(0.5, 0.5, 0.5),
-  },
-];
-
 const imageData = ctx.createImageData(canvas.width, canvas.height);
 const data = imageData.data;
+const SAMPLES = 4;
 
 for (let py = 0; py < 600; py++) {
   for (let px = 0; px < 800; px++) {
-    let x = (px - 400) / 300;
-    let y = ((py - 300) * -1) / 300;
-
-    const direction = new Vec3(x, y, -1).normalize();
-    const ray = new Ray(new Vec3(0, 0, 0), direction);
     const index = (py * canvas.width + px) * 4;
+    let colorSum = new Vec3(0, 0, 0);
 
-    const color = traceRay(ray);
+    for (let s = 0; s < SAMPLES; s++) {
+      const samplePx = px + Math.random();
+      const samplePy = py + Math.random();
+      let x = (samplePx - 400) / 300;
+      let y = ((samplePy - 300) * -1) / 300;
 
-    data[index] = 255 * color.x;
-    data[index + 1] = 255 * color.y;
-    data[index + 2] = 255 * color.z;
+      const direction = new Vec3(x, y, -1).normalize();
+      const ray = new Ray(new Vec3(0, 0, 0), direction);
+
+      colorSum = colorSum.add(traceRay(ray));
+    }
+
+    const finalColor = colorSum.scale(1 / 4);
+
+    data[index] = 255 * finalColor.x;
+    data[index + 1] = 255 * finalColor.y;
+    data[index + 2] = 255 * finalColor.z;
     data[index + 3] = 255;
   }
 }
