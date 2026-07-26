@@ -3,6 +3,49 @@ import { Ray } from "./ray";
 import { Sphere } from "./sphere";
 import { Plane } from "./plane";
 
+function traceRay(ray: Ray): Vec3 {
+  let bestT = Infinity;
+  let bestObject = null;
+
+  for (const obj of objects) {
+    const t = obj.shape.intersect(ray);
+    if (t !== null && t < bestT) {
+      bestT = t;
+      bestObject = obj;
+    }
+  }
+
+  if (bestObject !== null) {
+    const P = ray.pointAt(bestT);
+    const normal = bestObject.shape.getNormal(P);
+    const lightDir = light.sub(P).normalize();
+    const shadowOrigin = P.add(normal.scale(0.001));
+    const shadowRay = new Ray(shadowOrigin, lightDir);
+    let brightness = Math.max(0, normal.dot(lightDir));
+
+    for (const object of objects) {
+      const t = object.shape.intersect(shadowRay);
+      let inShadow = false;
+
+      if (t !== null) {
+        inShadow = true;
+      }
+
+      if (inShadow == true) {
+        brightness = 0;
+      }
+    }
+
+    return new Vec3(
+      brightness * bestObject.color.x,
+      brightness * bestObject.color.y,
+      brightness * bestObject.color.z,
+    );
+  } else {
+    return new Vec3(0, 0, 0);
+  }
+}
+
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d")!;
 const light = new Vec3(2, 2, 0);
@@ -26,48 +69,13 @@ for (let py = 0; py < 600; py++) {
     const direction = new Vec3(x, y, -1).normalize();
     const ray = new Ray(new Vec3(0, 0, 0), direction);
     const index = (py * canvas.width + px) * 4;
-    let bestT = Infinity;
-    let bestObject = null;
 
-    for (const obj of objects) {
-      const t = obj.shape.intersect(ray);
-      if (t !== null && t < bestT) {
-        bestT = t;
-        bestObject = obj;
-      }
-    }
+    const color = traceRay(ray);
 
-    if (bestObject !== null) {
-      const P = ray.pointAt(bestT);
-      const normal = bestObject.shape.getNormal(P);
-      const lightDir = light.sub(P).normalize();
-      const shadowOrigin = P.add(normal.scale(0.001));
-      const shadowRay = new Ray(shadowOrigin, lightDir);
-      let brightness = Math.max(0, normal.dot(lightDir));
-
-      for (const object of objects) {
-        const t = object.shape.intersect(shadowRay);
-        let inShadow = false;
-
-        if (t !== null) {
-          inShadow = true;
-        }
-
-        if (inShadow == true) {
-          brightness = 0;
-        }
-      }
-
-      data[index] = 255 * brightness * bestObject.color.x; // R
-      data[index + 1] = 255 * brightness * bestObject.color.y; // G
-      data[index + 2] = 255 * brightness * bestObject.color.z; // B
-      data[index + 3] = 255; // A (255 - w pełni widoczne)
-    } else {
-      data[index] = 0; // R
-      data[index + 1] = 0; // G
-      data[index + 2] = 0; // B
-      data[index + 3] = 255; // A (255 - w pełni widoczne)
-    }
+    data[index] = 255 * color.x;
+    data[index + 1] = 255 * color.y;
+    data[index + 2] = 255 * color.z;
+    data[index + 3] = 255;
   }
 }
 
