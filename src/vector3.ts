@@ -34,4 +34,10 @@ export class Vec3 {
     const len = this.length();
     return new Vec3(this.x / len, this.y / len, this.z / len);
   }
+
+  public reflect(normal: Vec3): Vec3 {
+    const d = this.dot(normal);
+    const projection = normal.scale(2 * d);
+    return this.sub(projection);
+  }
 }
