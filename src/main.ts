@@ -8,16 +8,25 @@ import { Plane } from "./plane";
 const light = new Vec3(2, 2, 0);
 
 const objects = [
-  { shape: new Sphere(new Vec3(0, 0, -3), 1), color: new Vec3(1, 0, 0) },
+  {
+    shape: new Sphere(new Vec3(0, 0, -3), 1),
+    color: new Vec3(1, 0, 0),
+    reflectivity: 0.6,
+  },
   {
     shape: new Plane(new Vec3(0, -1, 0), new Vec3(0, 1, 0)),
     color: new Vec3(0.5, 0.5, 0.5),
+    reflectivity: 0,
   },
 ];
 
 // ---------- Core raytracing logic ----------
 
-function traceRay(ray: Ray): Vec3 {
+function traceRay(ray: Ray, depth: number = 3): Vec3 {
+  if (depth <= 0) {
+    return new Vec3(0, 0, 0);
+  }
+
   let bestT = Infinity;
   let bestObject = null;
 
@@ -50,11 +59,26 @@ function traceRay(ray: Ray): Vec3 {
       }
     }
 
-    return new Vec3(
+    ray.direction.reflect(normal);
+
+    const localColor = new Vec3(
       brightness * bestObject.color.x,
       brightness * bestObject.color.y,
       brightness * bestObject.color.z,
     );
+
+    if (bestObject.reflectivity <= 0) {
+      return localColor;
+    }
+
+    const reflectedDir = ray.direction.reflect(normal);
+    const reflectedOrigin = P.add(normal.scale(0.001));
+    const reflectedRay = new Ray(reflectedOrigin, reflectedDir);
+    const reflectedColor = traceRay(reflectedRay, depth - 1);
+
+    return localColor
+      .scale(1 - bestObject.reflectivity)
+      .add(reflectedColor.scale(bestObject.reflectivity));
   } else {
     return new Vec3(0, 0, 0);
   }
