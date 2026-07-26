@@ -41,7 +41,22 @@ for (let py = 0; py < 600; py++) {
       const P = ray.pointAt(bestT);
       const normal = bestObject.shape.getNormal(P);
       const lightDir = light.sub(P).normalize();
-      const brightness = Math.max(0, normal.dot(lightDir));
+      const shadowOrigin = P.add(normal.scale(0.001));
+      const shadowRay = new Ray(shadowOrigin, lightDir);
+      let brightness = Math.max(0, normal.dot(lightDir));
+
+      for (const object of objects) {
+        const t = object.shape.intersect(shadowRay);
+        let inShadow = false;
+
+        if (t !== null) {
+          inShadow = true;
+        }
+
+        if (inShadow == true) {
+          brightness = 0;
+        }
+      }
 
       data[index] = 255 * brightness * bestObject.color.x; // R
       data[index + 1] = 255 * brightness * bestObject.color.y; // G
