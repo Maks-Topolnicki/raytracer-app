@@ -40,4 +40,17 @@ export class Vec3 {
     const projection = normal.scale(2 * d);
     return this.sub(projection);
   }
+
+  public refract(normal: Vec3, n1: number, n2: number): Vec3 | null {
+    const n = n1 / n2;
+    const cosI = -this.dot(normal);
+    const sinT2 = n * n * (1 - cosI * cosI);
+
+    if (sinT2 > 1) {
+      return null; // całkowite wewnętrzne odbicie - światło nie może przejść
+    }
+
+    const cosT = Math.sqrt(1 - sinT2);
+    return this.scale(n).add(normal.scale(n * cosI - cosT));
+  }
 }
