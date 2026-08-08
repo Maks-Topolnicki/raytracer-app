@@ -34,4 +34,11 @@ export class Plane extends Shape {
   public getNormal(point: Vec3): Vec3 {
     return this.normal;
   }
+
+  public getColorAt(point: Vec3): Vec3 {
+    const squareX = Math.floor(point.x);
+    const squareZ = Math.floor(point.z);
+    const isEven = (squareX + squareZ) % 2 === 0;
+    return isEven ? new Vec3(0.9, 0.9, 0.9) : new Vec3(0.3, 0.3, 0.3);
+  }
 }

@@ -11,12 +11,24 @@ const objects = [
   {
     shape: new Sphere(new Vec3(0, 0, -3), 1),
     color: new Vec3(1, 0, 0),
-    reflectivity: 0.6,
+    reflectivity: 0,
+    transparency: 0.9,
+    refractiveIndex: 1.5,
   },
   {
     shape: new Plane(new Vec3(0, -1, 0), new Vec3(0, 1, 0)),
     color: new Vec3(0.5, 0.5, 0.5),
     reflectivity: 0,
+    transparency: 0,
+    refractiveIndex: 1,
+  },
+
+  {
+    shape: new Sphere(new Vec3(-0.75, 0, -5), 0.7),
+    color: new Vec3(0.2, 0.4, 1),
+    reflectivity: 0,
+    transparency: 0,
+    refractiveIndex: 1,
   },
 ];
 
@@ -29,6 +41,7 @@ function traceRay(ray: Ray, depth: number = 3): Vec3 {
 
   let bestT = Infinity;
   let bestObject = null;
+  const AMBIENT = 0.3;
 
   for (const obj of objects) {
     const t = obj.shape.intersect(ray);
@@ -44,7 +57,8 @@ function traceRay(ray: Ray, depth: number = 3): Vec3 {
     const lightDir = light.sub(P).normalize();
     const shadowOrigin = P.add(normal.scale(0.001));
     const shadowRay = new Ray(shadowOrigin, lightDir);
-    let brightness = Math.max(0, normal.dot(lightDir));
+    let brightness =
+      AMBIENT + (1 - AMBIENT) * Math.max(0, normal.dot(lightDir));
 
     for (const object of objects) {
       const t = object.shape.intersect(shadowRay);
@@ -55,30 +69,66 @@ function traceRay(ray: Ray, depth: number = 3): Vec3 {
       }
 
       if (inShadow == true) {
-        brightness = 0;
+        brightness = AMBIENT;
       }
     }
 
-    ray.direction.reflect(normal);
+    const surfaceColor =
+      bestObject.shape instanceof Plane
+        ? bestObject.shape.getColorAt(P)
+        : bestObject.color;
 
     const localColor = new Vec3(
-      brightness * bestObject.color.x,
-      brightness * bestObject.color.y,
-      brightness * bestObject.color.z,
+      brightness * surfaceColor.x,
+      brightness * surfaceColor.y,
+      brightness * surfaceColor.z,
     );
 
-    if (bestObject.reflectivity <= 0) {
-      return localColor;
+    const isEntering = ray.direction.dot(normal) < 0;
+    const n1 = isEntering ? 1.0 : bestObject.refractiveIndex;
+    const n2 = isEntering ? bestObject.refractiveIndex : 1.0;
+    const refractNormal = isEntering ? normal : normal.scale(-1);
+
+    if (bestObject.transparency > 0) {
+      const cosI = Math.abs(ray.direction.dot(refractNormal));
+      const r0 = Math.pow((n1 - n2) / (n1 + n2), 2);
+      const fresnel = r0 + (1 - r0) * Math.pow(1 - cosI, 5);
+
+      const reflectedDir = ray.direction.reflect(normal);
+      const reflectedOrigin = P.add(normal.scale(0.001));
+      const reflectedRay = new Ray(reflectedOrigin, reflectedDir);
+      const reflectedColor = traceRay(reflectedRay, depth - 1);
+
+      const refractedDir = ray.direction.refract(refractNormal, n1, n2);
+
+      let combinedColor: Vec3;
+      if (refractedDir !== null) {
+        const refractedOrigin = P.add(refractedDir.scale(0.001));
+        const refractedRay = new Ray(refractedOrigin, refractedDir);
+        const refractedColor = traceRay(refractedRay, depth - 1);
+        combinedColor = reflectedColor
+          .scale(fresnel)
+          .add(refractedColor.scale(1 - fresnel));
+      } else {
+        combinedColor = reflectedColor; // całkowite wewnętrzne odbicie
+      }
+
+      return localColor
+        .scale(1 - bestObject.transparency)
+        .add(combinedColor.scale(bestObject.transparency));
     }
 
-    const reflectedDir = ray.direction.reflect(normal);
-    const reflectedOrigin = P.add(normal.scale(0.001));
-    const reflectedRay = new Ray(reflectedOrigin, reflectedDir);
-    const reflectedColor = traceRay(reflectedRay, depth - 1);
+    if (bestObject.reflectivity > 0) {
+      const reflectedDir = ray.direction.reflect(normal);
+      const reflectedOrigin = P.add(normal.scale(0.001));
+      const reflectedRay = new Ray(reflectedOrigin, reflectedDir);
+      const reflectedColor = traceRay(reflectedRay, depth - 1);
+      return localColor
+        .scale(1 - bestObject.reflectivity)
+        .add(reflectedColor.scale(bestObject.reflectivity));
+    }
 
-    return localColor
-      .scale(1 - bestObject.reflectivity)
-      .add(reflectedColor.scale(bestObject.reflectivity));
+    return localColor;
   } else {
     return new Vec3(0, 0, 0);
   }
