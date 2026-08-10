@@ -53,4 +53,12 @@ export class Vec3 {
     const cosT = Math.sqrt(1 - sinT2);
     return this.scale(n).add(normal.scale(n * cosI - cosT));
   }
+
+  public cross(v: Vec3): Vec3 {
+    return new Vec3(
+      this.y * v.z - this.z * v.y,
+      this.z * v.x - this.x * v.z,
+      this.x * v.y - this.y * v.x,
+    );
+  }
 }

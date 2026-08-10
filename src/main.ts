@@ -24,11 +24,19 @@ const objects = [
   },
 
   {
-    shape: new Sphere(new Vec3(-0.75, 0, -5), 0.7),
+    shape: new Sphere(new Vec3(0.75, 0, -5), 0.7),
     color: new Vec3(0.2, 0.4, 1),
     reflectivity: 0,
     transparency: 0,
     refractiveIndex: 1,
+  },
+
+  {
+    shape: new Sphere(new Vec3(-1, 0, -2), 1),
+    color: new Vec3(1, 1, 1),
+    reflectivity: 0,
+    transparency: 0.9,
+    refractiveIndex: 1.5,
   },
 ];
 
@@ -134,6 +142,25 @@ function traceRay(ray: Ray, depth: number = 3): Vec3 {
   }
 }
 
+function getCameraBasis(
+  azimuth: number,
+  elevation: number,
+  distance: number,
+  target: Vec3,
+) {
+  const x = distance * Math.cos(elevation) * Math.sin(azimuth);
+  const y = distance * Math.sin(elevation);
+  const z = distance * Math.cos(elevation) * Math.cos(azimuth);
+
+  const cameraPos = target.add(new Vec3(x, y, z));
+  const forward = target.sub(cameraPos).normalize();
+  const worldUp = new Vec3(0, 1, 0);
+  const right = forward.cross(worldUp).normalize();
+  const up = right.cross(forward);
+
+  return { cameraPos, forward, right, up };
+}
+
 // ---------- Render loop ----------
 
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
@@ -142,30 +169,45 @@ const imageData = ctx.createImageData(canvas.width, canvas.height);
 const data = imageData.data;
 const SAMPLES = 4;
 
-for (let py = 0; py < 600; py++) {
-  for (let px = 0; px < 800; px++) {
-    const index = (py * canvas.width + px) * 4;
-    let colorSum = new Vec3(0, 0, 0);
+function render(azimuth: number, elevation: number, distance: number) {
+  const target = new Vec3(0, 0, -3);
+  const { cameraPos, forward, right, up } = getCameraBasis(
+    azimuth,
+    elevation,
+    distance,
+    target,
+  );
 
-    for (let s = 0; s < SAMPLES; s++) {
-      const samplePx = px + Math.random();
-      const samplePy = py + Math.random();
-      let x = (samplePx - 400) / 300;
-      let y = ((samplePy - 300) * -1) / 300;
+  for (let py = 0; py < 600; py++) {
+    for (let px = 0; px < 800; px++) {
+      const index = (py * canvas.width + px) * 4;
+      let colorSum = new Vec3(0, 0, 0);
 
-      const direction = new Vec3(x, y, -1).normalize();
-      const ray = new Ray(new Vec3(0, 0, 0), direction);
+      for (let s = 0; s < SAMPLES; s++) {
+        const samplePx = px + Math.random();
+        const samplePy = py + Math.random();
+        const x = (samplePx - 400) / 300;
+        const y = ((samplePy - 300) * -1) / 300;
 
-      colorSum = colorSum.add(traceRay(ray));
+        const direction = forward
+          .add(right.scale(x))
+          .add(up.scale(y))
+          .normalize();
+        const ray = new Ray(cameraPos, direction);
+
+        colorSum = colorSum.add(traceRay(ray));
+      }
+
+      const finalColor = colorSum.scale(1 / SAMPLES);
+
+      data[index] = 255 * finalColor.x;
+      data[index + 1] = 255 * finalColor.y;
+      data[index + 2] = 255 * finalColor.z;
+      data[index + 3] = 255;
     }
-
-    const finalColor = colorSum.scale(1 / 4);
-
-    data[index] = 255 * finalColor.x;
-    data[index + 1] = 255 * finalColor.y;
-    data[index + 2] = 255 * finalColor.z;
-    data[index + 3] = 255;
   }
+
+  ctx.putImageData(imageData, 0, 0);
 }
 
-ctx.putImageData(imageData, 0, 0);
+render(0, 0.3, 5);
